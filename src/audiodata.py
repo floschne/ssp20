@@ -6,38 +6,38 @@ import sounddevice as sd
 
 class AudioData:
 
-    def __init__(self, path, data=None, dur=None, sr=None):
+    def __init__(self, path, data=None, dur=None, sampling_freq=None):
         if path is not None:
             self.path = path
-            self.data, self.sr = rosa.load(path, sr=None)
-            self.duration = len(self.data) / self.sr
+            self.data, self.fs = rosa.load(path, sr=None)
+            self.duration = len(self.data) / self.fs
 
             print('Successfully loaded audio data from file: %s' % (self.path))
         else:
             self.path = None
             self.data = data
-            self.sr = sr
+            self.fs = sampling_freq
             self.duration = dur
             print('Successfully loaded audio data!')
 
-    def plot(self, start=None, stop=None, num_ticks=80):
-        assert stop is None or stop <= start + self.duration
+    def plot(self, start_s=None, stop_s=None, num_ticks=80):
+        assert stop_s is None or stop_s <= start_s + self.duration
 
-        if stop is None:
-            stop = self.duration
+        if stop_s is None:
+            stop_s = self.duration
 
         fig, axs = None, None
         # init plot
-        if start is None:
+        if start_s is None:
             fig, axs = plt.subplots(figsize=(20, 10))
         else:
             fig, axs = plt.subplots(2, 1, figsize=(20, 10), gridspec_kw={'height_ratios': [2, 10]})
 
-        if start is not None:
+        if start_s is not None:
             # crop signal
-            cropped_data = self.data[int(start * self.sr): int(stop * self.sr)]
-            cropped_duration = len(cropped_data) / self.sr
-            cropped_t = np.linspace(start, start + cropped_duration, len(cropped_data))
+            cropped_data = self.data[int(start_s * self.fs): int(stop_s * self.fs)]
+            cropped_duration = len(cropped_data) / self.fs
+            cropped_t = np.linspace(start_s, start_s + cropped_duration, len(cropped_data))
 
             # x-axis ticks
             axs[0].set_xlabel('time [s]')
@@ -49,7 +49,7 @@ class AudioData:
             # cropped signal x-axis ticks
             axs[1].set_xlabel('time [s]')
             cropped_tick_size = cropped_duration / num_ticks
-            cropped_ticks = np.arange(start, start + cropped_duration + cropped_tick_size, cropped_tick_size)
+            cropped_ticks = np.arange(start_s, start_s + cropped_duration + cropped_tick_size, cropped_tick_size)
             axs[1].set_xticks(cropped_ticks)
             plt.setp(axs[1].get_xticklabels(), rotation=90)
 
@@ -70,7 +70,7 @@ class AudioData:
             axs[0].plot(t, self.data)
 
             # highlight cropped area
-            axs[0].axvspan(start, start + cropped_duration, color='orange', alpha=0.5)
+            axs[0].axvspan(start_s, start_s + cropped_duration, color='orange', alpha=0.5)
 
             # plot cropped signal
             axs[1].plot(cropped_t, cropped_data)
@@ -109,15 +109,15 @@ class AudioData:
         if stop is None:
             stop = self.duration
 
-        data = self.data[int(start * self.sr): int(stop * self.sr)]
+        data = self.data[int(start * self.fs): int(stop * self.fs)]
 
-        sd.play(data, self.sr)
+        sd.play(data, self.fs)
 
     def get_frames(self, frame_length_ms: int = 32, frame_shift_ms: int = 16) -> [np.ndarray, np.ndarray]:
 
         # translate from ms to indices
-        frame_length = self.sr * (frame_length_ms / 1000)
-        frame_shift = self.sr * (frame_shift_ms / 1000)
+        frame_length = self.fs * (frame_length_ms / 1000)
+        frame_shift = self.fs * (frame_shift_ms / 1000)
 
         # number of possible frames (w/o padding!)
         num_frames = np.floor((len(self.data) - frame_length) / frame_shift) + 1
@@ -211,8 +211,14 @@ class AudioData:
 
         return res
 
-    def get_cropped(self, start, stop):
-        cropped_data = self.data[int(start * self.sr): int(stop * self.sr)]
-        cropped_duration = len(cropped_data) / self.sr
-        
-        return AudioData(None, cropped_data, cropped_duration, self.sr)
+    def crop(self, start_s: np.float, stop_s: np.float):
+        cropped_data = self.data[self.s_to_idx(start_s): self.s_to_idx(stop_s)]
+        cropped_duration = len(cropped_data) / self.fs
+
+        return cropped_data, cropped_duration
+
+    def ms_to_idx(self, ms: int):
+        return ms * 1000 * self.fs
+
+    def s_to_idx(self, s: np.float):
+        return s * self.fs
