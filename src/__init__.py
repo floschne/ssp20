@@ -1,4 +1,4 @@
-from src.audio_utils import hz_to_ms, hz_to_s, ms_to_idx, s_to_idx
+import src.utils.conversion as conversion
 from src.audiodata import AudioData
 
-__all__ = [AudioData, hz_to_ms, hz_to_s, ms_to_idx, s_to_idx]
+__all__ = [AudioData, conversion]

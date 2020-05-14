@@ -12,7 +12,6 @@ def convert_to_samples(milliseconds: int, sampling_freq: int):
     return int(milliseconds * (10 ** (-3)) * sampling_freq)
 
 
-
 def compute_istft(stft: np.ndarray, sampling_rate: int, frame_shift: int, synthesis_window: np.ndarray) -> [np.ndarray]:
     """
     Compute the inverse short-time Fourier transform.
@@ -36,9 +35,8 @@ def compute_istft(stft: np.ndarray, sampling_rate: int, frame_shift: int, synthe
     output_len = samples_per_frame + (num_frames - 1) * samples_per_shift
     time_signal = np.zeros((output_len))
 
-
     # reconstruct signal by adding overlapping windowed segments
     for i in range(num_frames):
-        time_signal[i*samples_per_shift:i*samples_per_shift+samples_per_frame] += time_frames[i]
+        time_signal[i * samples_per_shift:i * samples_per_shift + samples_per_frame] += time_frames[i]
 
     return time_signal
