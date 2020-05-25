@@ -131,6 +131,11 @@ class AudioData:
     def get_frames(self,
                    frame_length_ms: int = 32,
                    frame_shift_ms: int = 16) -> [np.ndarray, np.ndarray]:
+        """
+        :param frame_length_ms: the length of one frame in ms
+        :param frame_shift_ms: the shift of each frame in ms
+        :return: frame_centers_ms, frames
+        """
 
         # translate from ms to indices
         frame_length_idx = self.ms_to_idx(frame_length_ms)
@@ -142,16 +147,19 @@ class AudioData:
         v_time_frame = list()
         frames = list()
         for i in np.arange(num_frames):
-            # frame center
-            v_time_frame.append(((i + 1) * frame_length_ms) / 2)
-
-            # crop frame from signal
             frame_start = int(i * frame_shift_idx)
             frame_end = int(i * frame_shift_idx + frame_length_idx)
+            assert (frame_end - frame_start) == frame_length_idx
+
+            # frame center
+            v_time_frame.append(self.idx_to_ms(frame_start) + (frame_length_ms / 2))
+            # crop frame from signal
             frames.append(self.data[frame_start: frame_end])
 
         frame_centers_ms = np.array(v_time_frame)
         frames = np.array(frames)
+
+        assert len(frames) == len(frame_centers_ms)
 
         return frame_centers_ms, frames
 
@@ -241,9 +249,9 @@ class AudioData:
         """
         :param frame_length_ms:
         :param frame_shift_ms:
-        :param window: The analysis window which is applied to each frame.
+        :param window_name: The analysis window which is applied to each frame.
         By default: Hann Window. Add 'sqrt_' as prefix to apply sqrt.
-        :return: stft, freq_axis, frame_centers_ms
+        :return: stft, freq_axis_hz, frame_centers_ms
         """
 
         window = None
@@ -272,9 +280,9 @@ class AudioData:
         nyquist_freq_hz = self.sampling_freq / 2
 
         # freq axis in Hz
-        freq_axis = np.linspace(0, nyquist_freq_hz, N)
+        freq_axis_hz = np.linspace(0, nyquist_freq_hz, N)
 
-        return stft, freq_axis, frame_centers_ms
+        return stft, freq_axis_hz, frame_centers_ms
 
     def plot_stft(self,
                   stft: np.ndarray = None,
