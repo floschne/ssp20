@@ -1,12 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.audiodata import AudioData
+from src.audiosignal import AudioSignal
 from src.utils import ms_to_idx, idx_to_ms
 
 
 def compute_istft(stft: np.ndarray, sampling_freq_hz: int, frame_shift_ms: int,
-                  synthesis_window: np.ndarray) -> AudioData:
+                  synthesis_window: np.ndarray) -> AudioSignal:
     """
     Compute the inverse short-time Fourier transform.
 
@@ -34,7 +34,7 @@ def compute_istft(stft: np.ndarray, sampling_freq_hz: int, frame_shift_ms: int,
     for i in range(num_frames):
         time_signal[i * samples_per_shift:i * samples_per_shift + samples_per_frame] += time_frames[i]
 
-    return AudioData(data=time_signal, sampling_freq_hz=sampling_freq_hz)
+    return AudioSignal(data=time_signal, sampling_freq_hz=sampling_freq_hz)
 
 
 def compute_stft(frames: np.array, synthesis_window: np.ndarray, sampling_freq: int = 16000) -> [np.ndarray,

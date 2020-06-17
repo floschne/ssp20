@@ -33,6 +33,13 @@ def idx_to_s(idx: int, fs: np.float) -> np.float:
     return idx / fs
 
 
+def hz_to_idx(hz: np.float, fs: np.float) -> int:
+    """
+    :param hz: Frequency in Hertz
+    :param fs: sampling frequency in Hertz
+    """
+    return ms_to_idx(hz_to_ms(hz), fs)
+
 def hz_to_ms(hz: np.float) -> int:
     """
     :param hz: Frequency in Hertz

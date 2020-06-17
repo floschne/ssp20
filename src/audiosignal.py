@@ -7,7 +7,7 @@ import sounddevice as sd
 from src.utils import conversion
 
 
-class AudioData:
+class AudioSignal:
 
     def __init__(self,
                  path: str = None,
@@ -18,21 +18,22 @@ class AudioData:
             self.path = path
             self.data, self.sampling_freq = rosa.load(path, sr=sampling_freq_hz)
 
-            print('Successfully loaded audio data from file: %s' % self.path)
+            print('Successfully loaded audio signal from file: %s' % self.path)
         else:
             self.path = None
             assert data is not None
             assert sampling_freq_hz is not None
             self.data = data
             self.sampling_freq = sampling_freq_hz
-            print('Successfully loaded audio data!')
+            print('Successfully loaded audio signal!')
 
         self.duration_s = len(self.data) / self.sampling_freq
 
     def plot(self,
              start_s: np.float = None,
              stop_s: np.float = None,
-             num_ticks: int = 80):
+             num_ticks: int = 80,
+             return_plot=False):
 
         assert stop_s is None or stop_s <= start_s + self.duration_s
 
@@ -79,17 +80,17 @@ class AudioData:
 
             # plot complete signal
             t = np.linspace(0, self.duration_s, len(self.data))
-            axs[0].plot(t, self.data)
+            axs[0].plot(t, self.data, label='s(t)')
+            axs[0].legend()
 
             # highlight cropped area
             axs[0].axvspan(start_s, start_s + cropped_duration, color='orange', alpha=0.5)
 
             # plot cropped signal
-            axs[1].plot(cropped_t, cropped_data)
+            axs[1].plot(cropped_t, cropped_data, label='s(t)')
+            axs[1].legend()
 
             plt.tight_layout()
-
-            plt.show()
 
         else:
             # x-axis ticks
@@ -110,9 +111,11 @@ class AudioData:
 
             # plot complete signal
             t = np.linspace(0, self.duration_s, len(self.data))
-            axs.plot(t, self.data)
+            axs.plot(t, self.data, label='s(t)')
+            axs.legend()
 
-            plt.show()
+        if return_plot:
+            return fig, axs
 
     def play(self,
              start_s: np.float = 0.,
@@ -238,8 +241,6 @@ class AudioData:
             t2 = np.linspace(0, self.duration_s, len(self.data))
             axs2.plot(t2, self.data, color='C0')
 
-            plt.show()
-
         return res
 
     def compute_stft(self,
@@ -339,8 +340,6 @@ class AudioData:
         fig.colorbar(im, cax=axs[2], orientation="horizontal")
 
         plt.tight_layout()
-
-        plt.show()
 
         if return_plot:
             return fig, axs
