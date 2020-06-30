@@ -36,7 +36,12 @@ def compute_energy_in_time_domain(s: np.ndarray):
     :param s: the discrete time domain signal or an array of discrete time signals
     :return: the energy of the signal
     """
-    return np.sum(s ** 2)
+    if s.ndim == 2:
+        energy = np.sum(s ** 2, axis=1)
+        assert energy.ndim == 1 and energy.shape[0] == s.shape[0]
+        return energy
+    else:
+        return np.mean(s ** 2)
 
 
 def compute_energy_in_freq_domain(S: np.ndarray):

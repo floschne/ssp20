@@ -40,6 +40,7 @@ def hz_to_idx(hz: np.float, fs: np.float) -> int:
     """
     return ms_to_idx(hz_to_ms(hz), fs)
 
+
 def hz_to_ms(hz: np.float) -> int:
     """
     :param hz: Frequency in Hertz
@@ -66,3 +67,11 @@ def s_to_hz(s: np.float) -> np.float:
     :param s: seconds
     """
     return 1 / s
+
+
+def lin_to_db(x):
+    return 10 * np.log10(x)
+
+
+def db_to_lin(x):
+    return 10 ** (x / 10)
