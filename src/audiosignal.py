@@ -16,24 +16,31 @@ class AudioSignal:
 
         if path is not None:
             self.path = path
-            self.data, self.sampling_freq = rosa.load(path, sr=sampling_freq_hz)
+            print(self.path)
+            self.data, self.sampling_freq = rosa.load(path, sr=sampling_freq_hz, mono=False)
 
-            print('Successfully loaded audio signal from file: %s' % self.path)
+            self.channels = 1
+            if len(self.data.shape) == 2:
+                self.channels = self.data.shape[0]
+
+            print('Successfully loaded audio signal with %s channel(s) from file: %s' % (self.channels, self.path))
         else:
             self.path = None
             assert data is not None
             assert sampling_freq_hz is not None
             self.data = data
             self.sampling_freq = sampling_freq_hz
-            print('Successfully loaded audio signal!')
+            self.channels = 1
+            print('Successfully loaded audio signal with 1 channel!')
 
-        self.duration_s = len(self.data) / self.sampling_freq
+        self.duration_s = len(self.__get_channel_data(0)) / self.sampling_freq
 
     def plot(self,
              start_s: np.float = None,
              stop_s: np.float = None,
              num_ticks: int = 80,
-             return_plot=False):
+             return_plot=False,
+             channel: int = 0):
 
         assert stop_s is None or stop_s <= start_s + self.duration_s
 
@@ -49,7 +56,7 @@ class AudioSignal:
 
         if start_s is not None:
             # crop signal
-            cropped_data, cropped_duration = self.crop(start_s, stop_s)
+            cropped_data, cropped_duration = self.crop(start_s, stop_s, channel=channel)
             cropped_t = np.linspace(start_s, start_s + cropped_duration, len(cropped_data))
 
             # x-axis ticks
@@ -79,8 +86,8 @@ class AudioSignal:
             axs[1].margins(x=0.01, y=0.01)
 
             # plot complete signal
-            t = np.linspace(0, self.duration_s, len(self.data))
-            axs[0].plot(t, self.data, label='s(t)')
+            t = np.linspace(0, self.duration_s, len(self.__get_channel_data(channel)))
+            axs[0].plot(t, self.__get_channel_data(channel), label='s(t)')
             axs[0].legend()
 
             # highlight cropped area
@@ -110,8 +117,8 @@ class AudioSignal:
             axs.margins(x=0.01, y=0.01)
 
             # plot complete signal
-            t = np.linspace(0, self.duration_s, len(self.data))
-            axs.plot(t, self.data, label='s(t)')
+            t = np.linspace(0, self.duration_s, len(self.__get_channel_data(channel)))
+            axs.plot(t, self.__get_channel_data(channel), label='s(t)')
             axs.legend()
 
         if return_plot:
@@ -119,7 +126,8 @@ class AudioSignal:
 
     def play(self,
              start_s: np.float = 0.,
-             stop_s: np.float = None) -> None:
+             stop_s: np.float = None,
+             channel: int = 0) -> None:
 
         assert start_s >= 0
         assert stop_s is None or stop_s <= self.duration_s
@@ -127,13 +135,14 @@ class AudioSignal:
         if stop_s is None:
             stop_s = self.duration_s
 
-        cropped_data, cropped_duration = self.crop(start_s, stop_s)
+        cropped_data, cropped_duration = self.crop(start_s, stop_s, channel=channel)
 
         sd.play(cropped_data, self.sampling_freq)
 
     def get_frames(self,
                    frame_length_ms: int = 32,
-                   frame_shift_ms: int = 16) -> [np.ndarray, np.ndarray]:
+                   frame_shift_ms: int = 16,
+                   channel: int = 0) -> [np.ndarray, np.ndarray]:
         """
         :param frame_length_ms: the length of one frame in ms
         :param frame_shift_ms: the shift of each frame in ms
@@ -145,7 +154,7 @@ class AudioSignal:
         frame_shift_idx = self.ms_to_idx(frame_shift_ms)
 
         # number of possible frames (w/o padding!)
-        num_frames = np.floor((len(self.data) - frame_length_idx) / frame_shift_idx) + 1
+        num_frames = np.floor((len(self.__get_channel_data(channel)) - frame_length_idx) / frame_shift_idx) + 1
 
         v_time_frame = list()
         frames = list()
@@ -157,7 +166,7 @@ class AudioSignal:
             # frame center
             v_time_frame.append(self.idx_to_ms(frame_start) + (frame_length_ms / 2))
             # crop frame from signal
-            frames.append(self.data[frame_start: frame_end])
+            frames.append(self.__get_channel_data(channel)[frame_start: frame_end])
 
         frame_centers_ms = np.array(v_time_frame)
         frames = np.array(frames)
@@ -173,10 +182,11 @@ class AudioSignal:
                                   max_freq_hz: int = 400,
                                   plot=False,
                                   fig=None,
-                                  axs=None) -> np.ndarray:
+                                  axs=None,
+                                  channel: int = 0) -> np.ndarray:
 
         # get frames
-        v_time_frame, m_frames = self.get_frames(frame_length_ms, frame_shift_ms)
+        v_time_frame, m_frames = self.get_frames(frame_length_ms, frame_shift_ms, channel=channel)
 
         # acf
         res = []
@@ -239,14 +249,16 @@ class AudioSignal:
 
             # plot complete signal
             t2 = np.linspace(0, self.duration_s, len(self.data))
-            axs2.plot(t2, self.data, color='C0')
+            axs2.plot(t2, self.__get_channel_data(channel), color='C0')
 
         return res
 
     def compute_stft(self,
                      frame_length_ms: int = 32,
                      frame_shift_ms: int = 16,
-                     window_name: str = 'hann') -> [np.ndarray, np.ndarray, np.ndarray]:
+                     window_name: str = 'hann',
+                     window=None,
+                     channel: int = 0) -> [np.ndarray, np.ndarray, np.ndarray]:
         """
         :param frame_length_ms:
         :param frame_shift_ms:
@@ -255,17 +267,17 @@ class AudioSignal:
         :return: stft, freq_axis_hz, frame_centers_ms
         """
 
-        window = None
-        if 'sqrt_' in window_name:
-            window = ss.get_window(window_name[5:], self.ms_to_idx(frame_length_ms), fftbins=True)
-            window = np.sqrt(window)
-        else:
-            window = ss.get_window(window_name, self.ms_to_idx(frame_length_ms), fftbins=True)
+        if window is None:
+            if 'sqrt_' in window_name:
+                window = ss.get_window(window_name[5:], self.ms_to_idx(frame_length_ms), fftbins=True)
+                window = np.sqrt(window)
+            else:
+                window = ss.get_window(window_name, self.ms_to_idx(frame_length_ms), fftbins=True)
 
         assert len(window) == self.ms_to_idx(frame_length_ms)
 
         # framing
-        frame_centers_ms, frames = self.get_frames(frame_length_ms, frame_shift_ms)
+        frame_centers_ms, frames = self.get_frames(frame_length_ms, frame_shift_ms, channel=channel)
 
         # apply analysis window by multiplying with each frame
         windowed = window * frames
@@ -292,10 +304,12 @@ class AudioSignal:
                   frame_length_ms: int = 32,
                   frame_shift_ms: int = 16,
                   window: str = 'hann',
-                  return_plot: bool = False):
+                  return_plot: bool = False,
+                  channel: int = 0):
 
         if stft is None or freq_axis is None or frame_centers_ms is None:
-            stft, freq_axis, frame_centers_ms = self.compute_stft(frame_length_ms, frame_shift_ms, window)
+            stft, freq_axis, frame_centers_ms = self.compute_stft(frame_length_ms, frame_shift_ms, window,
+                                                                  channel=channel)
 
         fig, axs = plt.subplots(3, 1, figsize=(20, 10), gridspec_kw={'height_ratios': [2, 10, 0.5]})
 
@@ -346,8 +360,10 @@ class AudioSignal:
 
     def crop(self,
              start_s: np.float,
-             stop_s: np.float) -> (np.ndarray, np.float):
-        cropped_data = self.data[self.s_to_idx(start_s): self.s_to_idx(stop_s)]
+             stop_s: np.float,
+             channel: int = 0) -> (np.ndarray, np.float):
+
+        cropped_data = self.__get_channel_data(channel)[self.s_to_idx(start_s): self.s_to_idx(stop_s)]
         cropped_duration = len(cropped_data) / self.sampling_freq
 
         return cropped_data, cropped_duration
@@ -363,3 +379,12 @@ class AudioSignal:
 
     def idx_to_s(self, idx: int) -> np.float:
         return conversion.idx_to_s(idx, self.sampling_freq)
+
+    def __get_channel_data(self, channel: int = 0):
+        assert channel < self.channels, "Cannot get data from channel %s since only %s channels available!" % (
+            channel, self.channels)
+
+        if self.channels == 1:
+            return self.data
+        else:
+            return self.data[channel]
