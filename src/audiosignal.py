@@ -358,6 +358,53 @@ class AudioSignal:
         if return_plot:
             return fig, axs
 
+    def compute_short_time_cepstrum(self,
+                                    frame_length_ms: int = 32,
+                                    frame_shift_ms: int = 16,
+                                    window_name: str = 'hann',
+                                    window=None,
+                                    shift=False,
+                                    channel: int = 0) -> [np.ndarray, np.ndarray, np.ndarray]:
+        """
+        :param frame_length_ms:
+        :param frame_shift_ms:
+        :param window_name: The analysis window which is applied to each frame.
+        By default: Hann Window. Add 'sqrt_' as prefix to apply sqrt.
+        :return: real cepstrum, freq_axis_hz, frame_centers_ms
+        """
+
+        if window is None:
+            if 'sqrt_' in window_name:
+                window = ss.get_window(window_name[5:], self.ms_to_idx(frame_length_ms), fftbins=True)
+                window = np.sqrt(window)
+            else:
+                window = ss.get_window(window_name, self.ms_to_idx(frame_length_ms), fftbins=True)
+
+        assert len(window) == self.ms_to_idx(frame_length_ms)
+
+        # framing
+        frame_centers_ms, frames = self.get_frames(frame_length_ms, frame_shift_ms, channel=channel)
+
+        # apply analysis window by multiplying with each frame
+        windowed = window * frames
+
+        # RFFT on each windowed segment
+        spectrum = np.fft.rfft(windowed, axis=1)
+
+        # compute log magnitude spectrum
+        log_mag = np.log(np.abs(spectrum))
+
+        # compute the cepstrum by applying the IDFT of the log mag spectrum
+        cepstrum = np.fft.irfft(log_mag, axis=1)
+
+        if shift:
+            cepstrum = np.fft.fftshift(cepstrum)
+
+        # quefrency axis in 1/Hz
+        quefrency_axis = np.arange(-cepstrum[0].size // 2, cepstrum[0].size // 2)
+
+        return cepstrum, quefrency_axis, frame_centers_ms
+
     def crop(self,
              start_s: np.float,
              stop_s: np.float,
