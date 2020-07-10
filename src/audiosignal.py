@@ -305,6 +305,8 @@ class AudioSignal:
                   frame_shift_ms: int = 16,
                   window: str = 'hann',
                   return_plot: bool = False,
+                  vmin: int = None,
+                  vmax: int = None,
                   channel: int = 0):
 
         if stft is None or freq_axis is None or frame_centers_ms is None:
@@ -349,7 +351,9 @@ class AudioSignal:
                            cmap='viridis',
                            origin='lower',
                            extent=[ticks[0], ticks[-1], freq_axis[0], freq_axis[-1]],
-                           aspect='auto')
+                           aspect='auto',
+                           vmin=vmin,
+                           vmax=vmax)
 
         fig.colorbar(im, cax=axs[2], orientation="horizontal")
 
